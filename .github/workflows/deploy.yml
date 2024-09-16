@@ -1,0 +1,45 @@
+name: Deploy Next.js to EC2
+
+on:
+  push:
+    branches:
+      - main  # Trigger on push to the main branch
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18.19.1'  # Make sure this matches your Node.js version
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Build Next.js app
+      run: npm run build
+
+    - name: Deploy via SSH
+      env:
+        EC2_HOST: ${{ secrets.EC2_HOST }}        # Your EC2 instance's public IP
+        EC2_USER: ${{ secrets.EC2_USER }}        # EC2 user (e.g., ubuntu for Ubuntu)
+        EC2_KEY: ${{ secrets.EC2_KEY }}          # Private key for SSH
+      run: |
+        # Add SSH key
+        echo "${EC2_KEY}" | tr -d '\r' | ssh-add - > /dev/null
+
+        # Copy files to EC2
+        scp -i ~/.ssh/id_rsa -r ./build ${EC2_USER}@${EC2_HOST}:/path/to/your/app
+
+        # SSH into EC2 and restart the app
+        ssh -i ~/.ssh/id_rsa ${EC2_USER}@${EC2_HOST} << EOF
+          cd /path/to/your/app
+          npm install  # Install dependencies on EC2
+          npm run start  # Or restart your app if you're using PM2, Docker, etc.
+        EOF
